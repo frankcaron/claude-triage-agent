@@ -69,8 +69,6 @@ The scenarios have been pre-baked to save me the time and tokens to generate fak
 | INC-1103 | Credit bureau pulls timing out; applications stuck in PENDING_CREDIT | `bureau-pull-timeout.md` | about 0.9, estimate, not run | Runbook commands stand |
 | INC-1104 | E-sign queue stuck after a template publish dropped `apr_disclosure` | `esign-queue-stuck.md` | about 0.9, estimate, not run | Runbook commands stand |
 
-Model output varies, so take your real numbers from your rehearsals.
-
 ## Disclaimers
 
 This is meant as a demo, so there would be work necessary to move this directly into production. I've deliberately left it incomplete. Couple of callouts:
