@@ -1,8 +1,8 @@
 # Claude-Native Incident Triage Agent
 
-As I begin to spend more time with Claude directly following years of preferring multi-model tooling like Cursor and Perplexity, I am beginning to experiment with known patterns I've worked with in the real world — and applying them to Anthropic's native stack.
+As I begin to spend more time with Claude directly following years of preferring multi-model tooling like Cursor and Perplexity, I am attempting to port or reapply patterns I've worked with in the real world to Anthropic's native stack.
 
-This example draws on that experience from real-world production as realized in our [public use case from Reach](https://build.reach.com/reaching-autonomy-a-double-click-on-one-of-our-supervised-agentic-workflows-6db3ff9c35cd).
+This example draws on that experience from real-world production as discussed in our [public use case from Reach](https://build.reach.com/reaching-autonomy-a-double-click-on-one-of-our-supervised-agentic-workflows-6db3ff9c35cd).
 
 This project contains a simplified-in-some-ways, extended-in-others read-only incident triage agent for a consumer lender. It reads a simulated incident (an alert, service logs, recent deploys) and a small runbook library, then writes a triage note: likely cause, evidence as file:line, blast radius, and suggested commands for a human to approve. It never runs anything.
 
