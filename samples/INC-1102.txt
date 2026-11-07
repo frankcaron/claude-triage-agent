@@ -1,0 +1,182 @@
+# Saved output of one test run, Nov 7 2026. Model output varies run to run. The verdict was answered n only to exercise the prompt.
+
+== Triage ==
+  -> Glob {"pattern": "incidents/INC-1102/**"}
+  -> Glob {"pattern": "*.md", "path": "runbooks"}
+  -> Read {"file_path": "incidents/INC-1102/alert.json"}
+  -> Read {"file_path": "incidents/INC-1102/deploys.md"}
+  -> Read {"file_path": "incidents/INC-1102/logs/doc-verification.log"}
+  -> Read {"file_path": "runbooks/bureau-pull-timeout.md"}
+  -> Read {"file_path": "runbooks/esign-queue-stuck.md"}
+  -> Read {"file_path": "runbooks/disbursement-failure.md"}
+# Triage note: INC-1102
+
+## Summary
+Since about 15:00 UTC on 2026-11-08, the vendor's income-document fraud checks (pay stubs) on `doc-verification` have come back inconclusive far more often than normal. The 30-minute inconclusive rate is 22% against a 3% baseline. Inconclusive applications go to `PENDING_DOC_REVIEW` with no automatic decision, and 41 applications are waiting. Severity is SEV3.
+
+## Likely cause
+The most likely cause is the vendor's document model v7.2 rollout at 14:30 UTC. This is moderate confidence and based only on correlation. We made no internal deploys in the last 24 hours. Every inconclusive log line is tagged `vendor_model=v7.2`, and the spike started about 30 minutes after that rollout. The reasons given (`font_metadata_mismatch`, `low_resolution`) suggest the new model is stricter or recalibrated rather than seeing a real wave of fraud. That can't be ruled out from this data alone, though: we have one sample application and no breakdown by model version or document source.
+
+## Evidence (file:line)
+- `incidents/INC-1102/alert.json:6-10`: signal `doc_check_inconclusive_rate`, value 0.22 vs baseline 0.03, 41 applications waiting, above 15% for 30 minutes
+- `incidents/INC-1102/deploys.md:1`: no internal deploys in the last 24 hours
+- `incidents/INC-1102/deploys.md:5`: vendor `docverify` rolled out document model v7.2 at 14:30 UTC, per the vendor status page
+- `incidents/INC-1102/logs/doc-verification.log:2`: APP-SYN-2041 inconclusive, fraud_score 0.48, authenticity_score 0.51, reasons `font_metadata_mismatch,low_resolution`, `vendor_model=v7.2`
+- `incidents/INC-1102/logs/doc-verification.log:3`: APP-SYN-2041 moved to `PENDING_DOC_REVIEW`, `auto_decision=none`
+- `incidents/INC-1102/logs/doc-verification.log:4`: inconclusive_rate_30m 0.22, baseline 0.03, vendor_model v7.2, waiting 41
+
+## Blast radius
+- 41 applications are stuck in `PENDING_DOC_REVIEW`. The number grows while the rate stays high.
+- Underwriters have more manual reviews, and applicants wait longer for decisions.
+- The fail-safe is working: inconclusive results get no automatic decision (log line 3), so nobody is being wrongly approved or declined. The damage is delay, not wrong decisions.
+- Pay stub checks are affected. The data doesn't show whether other document types are.
+
+## Runbook
+None of the runbooks fit. I read all three:
+- `disbursement-failure.md` covers ACH returns on funding-svc. It doesn't apply.
+- `bureau-pull-timeout.md` covers credit bureau timeouts and PENDING_CREDIT. It's also a vendor problem, but different symptoms and a different service.
+- `esign-queue-stuck.md` covers loan-docs-svc and the e-sign queue. It doesn't apply.
+
+This is the expected "no runbook" case for INC-1102. Next steps for a human:
+1. Open a ticket with docverify that includes the v7.2 rollout time and sample request IDs such as `dv-SYN-88`. Ask whether they can roll back or pin the model version.
+2. Underwriters re-run or manually review the 41 pending applications. Approving or declining stays with them.
+3. Fraud/Risk decides whether the inconclusive cases are real fraud signals before anyone changes thresholds or routing.
+4. Write a doc-verification runbook after the incident.
+
+## Suggested commands (for human approval, not executed)
+None. No runbook matches, and commands can only be copied from a matching runbook. The other runbooks' commands target other services and shouldn't be used here.
+
+- **Diagnose, read-only:** none (no runbook)
+- **Act, changes production, needs approval:** none (no runbook)
+
+RUNBOOK: none
+[success, $0.116]
+
+== Runbook confidence (haiku) ==
+Runbook: none
+Confidence: 0.00 (threshold 0.70)
+
+== Extrapolated plan (opus) ==
+  -> Glob {"pattern": "{incidents/INC-1102/**,runbooks/**}"}
+  -> Glob {"pattern": "**/*", "path": "incidents/INC-1102"}
+  -> Glob {"pattern": "**/*", "path": "runbooks"}
+  -> Read {"file_path": "incidents/INC-1102/alert.json"}
+  -> Read {"file_path": "incidents/INC-1102/deploys.md"}
+  -> Read {"file_path": "incidents/INC-1102/logs/doc-verification.log"}
+  -> Read {"file_path": "runbooks/disbursement-failure.md"}
+  -> Read {"file_path": "runbooks/bureau-pull-timeout.md"}
+  -> Read {"file_path": "runbooks/esign-queue-stuck.md"}
+## Extrapolated plan (lower confidence, review before acting)
+
+No runbook covers this incident (the scorer gave 0.00 and no usable score). This plan borrows steps from three runbooks that don't quite fit, so a human should check each step. I haven't run anything. Every command below is for a person to run.
+
+**What the incident files show**
+- doc-verification's inconclusive rate is 0.22 against a 0.03 baseline, and 41 applications are waiting (`incidents/INC-1102/alert.json:6-9`, `logs/doc-verification.log:4`).
+- The vendor rolled out docverify model v7.2 at 14:30 UTC. There were no internal deploys in the last 24 hours (`deploys.md:1,5`). Every inconclusive log line carries `vendor_model=v7.2` (`doc-verification.log:2,4`).
+- One synthetic application was marked inconclusive (fraud_score=0.48, authenticity_score=0.51, reasons `font_metadata_mismatch,low_resolution`). It went to `PENDING_DOC_REVIEW` with `auto_decision=none` (`doc-verification.log:2-3`). The system is holding these applications for manual review rather than deciding them, which is correct.
+- **Leading hypothesis:** the vendor's v7.2 model changed how it scores documents.
+- **Alternative that has not been ruled out:** a real wave of altered pay stubs that happened to start around the same time. Only a fraud analyst can rule this out.
+
+**Placeholders:** the deployment name, namespace, DSN variables, vendor API and approver names are not in the incident files. They appear as `<placeholders>`. Values that come from other runbooks are marked as such.
+
+---
+
+### Diagnose, read-only
+
+**D1. Count inconclusive results and split them by vendor model**
+```
+kubectl logs deployment/<doc-verification-deployment> -n <namespace> --since=3h | grep 'result=inconclusive' | grep -oE 'vendor_model=[^ ]+' | sort | uniq -c
+```
+*Adapted from bureau-pull-timeout.md, "Diagnose (read-only)".* Same log-count pattern. Splitting by `vendor_model` tests whether the spike is all v7.2 (`doc-verification.log:2`).
+
+**D2. Compare the inconclusive rate before and after the 14:30 UTC rollout**
+```
+kubectl logs deployment/<doc-verification-deployment> -n <namespace> --since=4h --timestamps | grep 'doc_check' | grep -E 'result=' | awk '{print substr($1,12,2), $0}' | grep -oE '^[0-9]{2}|result=[a-z]+' | paste - - | sort | uniq -c
+```
+*New, not in any runbook.* Lines up the rate change with the vendor rollout time in `deploys.md:5`. If the rate climbed before 14:30, the vendor hypothesis is weaker.
+
+**D3. Count inconclusive results by reason**
+```
+kubectl logs deployment/<doc-verification-deployment> -n <namespace> --since=2h | grep 'result=inconclusive' | grep -oE 'reasons=[^ ]+' | tr ',' '\n' | sed 's/reasons=//' | sort | uniq -c | sort -rn
+```
+*New, not in any runbook.* If most results show `font_metadata_mismatch` / `low_resolution` (`doc-verification.log:2`), that points to a model that has become more sensitive. A spread of different reasons would point more toward real fraud.
+
+**D4. Check the size and age of the review queue**
+```
+psql "<LOANS_REPLICA_DSN>" -c "select count(*), min(updated_at) from applications where state = 'PENDING_DOC_REVIEW';"
+```
+*Adapted from bureau-pull-timeout.md, "Diagnose (read-only)".* Same queue-depth check, pointed at the state in `doc-verification.log:3`. It also confirms the 41 waiting applications from `alert.json:9`. The table and column names come from that runbook and should be verified.
+
+**D5. Confirm there was no internal release**
+```
+kubectl rollout history deployment/<doc-verification-deployment> -n <namespace>
+```
+*Adapted from disbursement-failure.md, "Diagnose (read-only)" step 2.* Checks the "no internal deploys" claim in `deploys.md:1` directly instead of trusting it.
+
+**D6. Check the vendor's status page and changelog for v7.2**
+Open `<docverify status page / v7.2 release notes URL>`.
+*Adapted from disbursement-failure.md, "Diagnose (read-only)" step 3* ("check the processor's status page before blaming your own code"). The rollout was only reported "per vendor status page" (`deploys.md:5`). Look for threshold or scoring changes and a known-issues list.
+
+**D7. Check whether the inconclusive applications cluster together** (same employer, same document source, same upload channel)
+```
+psql "<LOANS_REPLICA_DSN>" -c "select <employer_or_doc_source_column>, count(*) from <doc_checks_table> where result = 'inconclusive' and created_at > now() - interval '3 hours' group by 1 order by 2 desc limit 20;"
+```
+*New, not in any runbook.* A tight cluster suggests a real fraud pattern. The fraud analyst should see this output; SRE should not interpret it on their own.
+
+---
+
+### What a human must confirm before any Act step
+
+1. **The spike follows v7.2.** D1 and D2 show inconclusives concentrated on v7.2 and starting at or after 14:30 UTC.
+2. **No internal change.** D5 shows no recent rollout.
+3. **A fraud analyst has reviewed D3, D7 and a sample of affected documents** and agrees this looks like model drift rather than a real fraud wave. SRE can't make that call.
+4. **The held applications stay held.** Every affected application is still in `PENDING_DOC_REVIEW` with no automatic decision (`doc-verification.log:3`). An inconclusive result is neither a pass nor a fail, and nothing in this plan changes that.
+5. **No money moves in this incident.** No step below funds, disburses or reverses anything. If anyone proposes a step that does, it needs Funding Operations' two-approver process (disbursement-failure.md, approval note).
+
+---
+
+### Act, changes production, needs approval
+
+**A1. Ask the vendor to pin or roll back to the prior model version**
+```
+curl -X POST "<docverify-api-base>/<model-pin-endpoint>" -H "Authorization: Bearer <DOCVERIFY_ADMIN_TOKEN>" -d '{"model_version":"<previous-model-version>"}'
+```
+*New, not in any runbook.* This targets the leading hypothesis (`deploys.md:5`). It changes the data that fraud decisions rely on, much like the bureau switch, which needs Credit Risk's approval in bureau-pull-timeout.md, "Act".
+**Approvers:** `<doc-verification service owner>` and `<Fraud/Risk lead>`. If the vendor offers no pin endpoint, this becomes an escalation (A4).
+
+**A2. Re-run the check for held applications, one application at a time**
+```
+curl -X POST "<doc-verification-api>/v1/doc-checks/<application-id>/rerun" -H "Authorization: Bearer <DOCVERIFY_OPS_TOKEN>" -H "X-Approver: <underwriter-or-fraud-analyst-id>"
+```
+*New, not in any runbook. The one-at-a-time approach is adapted from disbursement-failure.md, "Act" step 3.* Only do this after A1 is in place, or with a model version the fraud analyst has signed off on.
+**Approver:** the `<underwriter or fraud analyst>` assigned to each application.
+- Never re-run in bulk.
+- A new result goes to that underwriter or analyst. It never goes straight to an approval or decline.
+- If a re-run is still inconclusive, the application stays in manual review.
+
+**A3. Pause new application intake if the review queue breaches its SLA**
+```
+curl -X POST https://decisioning-api.internal.example.com/v1/intake/pause -H "Authorization: Bearer $DECISIONING_OPS_TOKEN"
+```
+*Adapted from bureau-pull-timeout.md, "Act (human only)".* Same lever for a queue that keeps growing (`alert.json:9`). Only use it if D4 shows the queue past `<doc review SLA>` and underwriting can't keep up.
+**Approver:** `<Decisioning on-call lead>` (the owner of this endpoint in that runbook), with `<Underwriting manager>` informed.
+
+**A4. Escalate to the vendor**
+Open a ticket with `<docverify account team / support contact>`. Attach the D1–D3 output and the v7.2 rollout time.
+*Adapted from bureau-pull-timeout.md, "Escalate"* (the partner account team after 30 minutes). The alert has already been firing for 30 minutes (`alert.json:10`).
+**Approver:** `<incident commander>`. Escalating isn't a production change, but anything it shares with the vendor must contain only application IDs, never applicant data.
+
+---
+
+### Verify
+- The inconclusive rate is back near the 0.03 baseline (`alert.json:8`) for at least `<N>` minutes.
+- `PENDING_DOC_REVIEW` is draining.
+- Every affected application has an underwriter's or fraud analyst's decision on record, or is still held with a stated reason. None was decided automatically.
+
+### Escalate
+- **Fraud/Risk lead** right away if D3 or D7 show a cluster.
+- **Underwriting manager** if held applications approach `<promised decision time>`.
+- **Compliance** if any applicant is owed an adverse-action or delay notice.
+[success, $0.204]
+
+Do you accept this remediation? Nothing runs either way. [y/n] Why not? (optional, Enter to skip) Verdict recorded in audit/audit.jsonl.

@@ -1,0 +1,94 @@
+# Saved output of one test run, Nov 7 2026. Model output varies run to run. The verdict was answered n only to exercise the prompt.
+
+== Triage ==
+  -> Glob {"pattern": "incidents/INC-1101/**"}
+  -> Glob {"pattern": "*", "path": "runbooks"}
+  -> Read {"file_path": "incidents/INC-1101/alert.json"}
+  -> Read {"file_path": "incidents/INC-1101/deploys.md"}
+  -> Read {"file_path": "incidents/INC-1101/logs/funding-svc.log"}
+  -> Read {"file_path": "runbooks/disbursement-failure.md"}
+# Triage note: INC-1101
+
+## Summary
+funding-svc is rejecting loan disbursements at 34% against a 1% baseline. The alert is SEV2 and has been firing for about 15 minutes, with 38 disbursements pending. The rejections began right after funding-svc 4.18.0 rolled out at 09:41 UTC. Before the rollout, disbursements were accepted.
+
+## Likely cause
+Release 4.18.0 changed how bank account numbers are normalized before the ACH (bank transfer) request is built. The processor's pre-validation now rejects some of those requests with return code R04, "invalid account number structure." The new normalizer is probably malforming some account numbers. Not all of them fail, because LN-SYN-0924 was accepted after the rollout. I haven't confirmed this: the processor's status page has not been checked, which runbook step 3 asks for.
+
+## Evidence (file:line)
+- `incidents/INC-1101/alert.json:6-10`: signal `disbursement_rejection_rate` is 0.34 against a 0.01 baseline, with 38 pending.
+- `incidents/INC-1101/deploys.md:3`: 09:41, funding-svc release 4.18.0, "normalize bank account numbers before ACH build" (rmehta).
+- `incidents/INC-1101/logs/funding-svc.log:2-3`: on 4.17.3, LN-SYN-0908 and LN-SYN-0912 were accepted.
+- `incidents/INC-1101/logs/funding-svc.log:4-6`: 4.17.3 stopped and 4.18.0 started, with `normalizer=enabled`.
+- `incidents/INC-1101/logs/funding-svc.log:9,11,14`: LN-SYN-0917, LN-SYN-0921 and LN-SYN-0930 were rejected with `source=processor_prevalidation return_code=R04`.
+- `incidents/INC-1101/logs/funding-svc.log:12`: LN-SYN-0924 was accepted on 4.18.0, so the failure is partial.
+- `incidents/INC-1101/logs/funding-svc.log:15,17`: 112 submitted and 38 rejected in 15 minutes, a rate of 0.34.
+- The deploy at `deploys.md:4` (doc-verification logging bump at 23:10) is a different service and doesn't line up in time, so it's unrelated.
+
+## Blast radius
+- **Service:** funding-svc, ACH rail only. The logs show no other rails.
+- **Loans:** about 38 rejected disbursements since 09:41 UTC, so funded loans are not being paid out. Examples are LN-SYN-0917 ($8,000), LN-SYN-0921 ($3,200) and LN-SYN-0930.
+- **Still growing:** new ACH disbursements will keep failing until the queue is paused or the release is rolled back.
+- **Funding dates:** any loan that misses its promised funding date needs the escalations below.
+- **ACH return rate:** R04 returns count against it.
+
+## Runbook
+`runbooks/disbursement-failure.md`. The symptoms match: the rejection rate jumped, and the processor is returning R04. Owner: Funding Operations on-call. Every action needs two approvers, the on-call engineer and a Funding Operations approver.
+
+## Suggested commands (for human approval, not executed)
+
+**Diagnose, read-only**
+
+1. Count rejected disbursements by return code (runbook "Diagnose (read-only)", step 1). The start time is the 4.18.0 rollout:
+   ```
+   curl -s "https://funding-api.internal.example.com/v1/disbursements?status=rejected&since=2026-11-08T09:41:00Z" -H "Authorization: Bearer $FUNDING_READONLY_TOKEN"
+   psql "$LOANS_REPLICA_DSN" -c "select return_code, count(*) from disbursements where status = 'rejected' and updated_at > now() - interval '2 hours' group by 1;"
+   ```
+2. Confirm the recent release (runbook "Diagnose (read-only)", step 2):
+   ```
+   kubectl rollout history deployment/funding-svc -n lending
+   kubectl logs deployment/funding-svc -n lending --since=2h | grep -E 'return_code=R0[234]'
+   ```
+3. Check the processor's status page before blaming 4.18.0 (runbook "Diagnose (read-only)", step 3).
+
+**Act, changes production, needs approval (two approvers)**
+
+1. Pause outbound ACH to stop further failures (runbook "Act", step 1):
+   ```
+   curl -X POST https://funding-api.internal.example.com/v1/queues/ach-outbound/pause -H "Authorization: Bearer $FUNDING_OPS_TOKEN"
+   ```
+2. Roll back release 4.18.0 to 4.17.3 (runbook "Act", step 2):
+   ```
+   kubectl rollout undo deployment/funding-svc -n lending
+   ```
+3. Resubmitting moves money, so it's for Funding Operations to decide (runbook "Act", step 3). It applies to each rejected disbursement separately, one at a time, and only after its bank details and current status are confirmed. Never bulk-resubmit. I am not recommending any specific resubmission.
+   ```
+   curl -X POST https://funding-api.internal.example.com/v1/disbursements/<disbursement-id>/resubmit -H "Authorization: Bearer $FUNDING_OPS_TOKEN" -H "X-Second-Approver: <approver-id>"
+   ```
+
+**Verify and escalate** (runbook "Verify" and "Escalate"):
+- The rejection rate is back to baseline, and Funding Operations has resumed the ACH queue.
+- Every affected loan is either funded exactly once or on hold with a reason.
+- Escalate to the Funding Operations lead for any loan past its promised funding date.
+- Escalate to Compliance if borrower disclosures promised a funding date that will be missed.
+
+None of these commands have been run.
+
+RUNBOOK: runbooks/disbursement-failure.md
+[success, $0.095]
+
+== Runbook confidence (haiku) ==
+[success, $0.004]
+Runbook: runbooks/disbursement-failure.md
+Confidence: 0.96 (threshold 0.70)
+  symptoms: 1.00
+  trigger: 1.00
+  service: 1.00
+  coverage: 0.80
+Why: The alert (rejection rate 0.34 against a 0.01 baseline, 38 pending), the R04 return codes, the service, and the 4.18.0 release at 09:41Z followed by rejections from 09:44Z all match the runbook's assumptions. The one gap is that the log's processor_prevalidation source, the "invalid account number structure" reason, and the normalizer=enabled config have no Diagnose step beyond the general release check and processor status page.
+  gap: No Diagnose step covers the normalizer=enabled config that shipped with release 4.18.0 (log line 6); the only related action is the Act rollback.
+  gap: No step addresses source=processor_prevalidation or the reason "invalid account number structure" (log lines 9, 11, 14), which is the actual rejection cause in the log.
+  gap: The runbook's Symptoms describe ACH return codes from processor responses, but the R04 rejections here came from processor prevalidation before submission, so the wording only partly fits.
+Above the threshold: the runbook commands above stand, pending human approval.
+
+Do you accept this remediation? Nothing runs either way. [y/n] Why not? (optional, Enter to skip) Verdict recorded in audit/audit.jsonl.
