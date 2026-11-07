@@ -4,9 +4,9 @@ Nov 7, 2026
 Frank Caron
 frankcaron.com
 
-Claude Incident Triage Agent, for use with Claude Agent SDK; deployable locally, or in hosted Claude envs.
-
-More info in the Readme.
+REAL-TIME INCIDENT TRIAGE
+Built with Claude Agent SDK.
+Deployable locally or in hosted Claude Code capable envs.
 """
 
 """===="""
@@ -234,7 +234,7 @@ enough in its result.
 async def main(incident: str) -> None:
     incident_dir = (ROOT / incident).resolve()
 
-    # Run the first agent
+    # Run the first agent to triage and identify correct runbook, if it can
     print("== Triage ==")
     triage = await run(
         f"Triage the incident in {incident}. Start with alert.json, "
@@ -245,7 +245,7 @@ async def main(incident: str) -> None:
     found = re.search(r"^RUNBOOK:\s*(\S+)", (triage.result or "") if triage else "", re.M)
     runbook = found.group(1) if found else "none"
 
-    # Review the score and confirm the suggested runbook is real
+    # Run the second agent to score based on its confidence
     print(f"\n== Runbook confidence ({SCORER_MODEL}) ==")
     data = None
     if runbook != "none":
@@ -273,7 +273,8 @@ async def main(incident: str) -> None:
         ask_sre(incident, runbook, score, "runbook", (triage.result or "") if triage else "")
         return
 
-    # If the score is below our threshold, fall back, plan, then ask the SRE to take over
+    # If the score is below our threshold, run the third agent to ideate an alternative
+    # Then ask the SRE to take over
     print(f"\n== Extrapolated plan ({FALLBACK_MODEL}) ==")
     gaps = "; ".join(data["gaps"]) if data else "no usable score"
     plan = await run(

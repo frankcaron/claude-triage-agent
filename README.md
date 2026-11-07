@@ -1,4 +1,4 @@
-# Incident triage agent (demo)
+# Claude-Native Incident Triage Agent
 
 As I begin to spend more time with Claude directly following years of preferring multi-model tooling like Cursor and Perplexity, I am beginning to experiment with known patterns I've worked with in the real world — and applying them to Anthropic's native stack.
 
@@ -75,7 +75,6 @@ Model output varies, so take your real numbers from your rehearsals.
 
 This is meant as a demo, so there would be work necessary to move this directly into production. I've deliberately left it incomplete. Couple of callouts:
 
-
 * Every applicant, loan and bank account in this repo is synthetic (`APP-SYN-*`, `LN-SYN-*`, `BA-SYN-*`).
 * Every host, token and API path in the runbooks is a placeholder.
 * The agent workflow has a $1.00 budget cap (`max_budget_usd`).
@@ -83,6 +82,8 @@ This is meant as a demo, so there would be work necessary to move this directly 
 * The repo adds deliberately-intended fakery to demonstrate Claude's unique baked-in guardrails, outlined below.
 
 ### Guardrails: three layers
+
+Ultimately, this is the money stuff. The SDK exposes key guardrails, as does the Claude platform-level controls, and these make the developer experience with Claude Code powerful. This includes...
 
 1. **SDK options.** `allowed_tools` approves Read, Glob and Grep. `disallowed_tools` removes Bash, Write, Edit and the web tools from the model's context. `permission_mode="dontAsk"` denies anything that would prompt, so a run never hangs on stage.
 2. **Deny rules** in `.claude/settings.json`: Bash, `.env`, `.env.*` and `secrets/` are denied, and a deny wins in every permission mode. This is the same file format an enterprise pushes through managed settings.
