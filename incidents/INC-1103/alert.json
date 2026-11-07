@@ -1,0 +1,1 @@
+{"id": "INC-1103", "service": "bureau-gateway", "severity": "SEV2", "signal": "credit_pull_timeout_rate", "value": 0.27, "baseline": 0.005, "summary": "Credit report pulls timing out above 10%; applications stuck in PENDING_CREDIT"}

@@ -1,0 +1,1 @@
+{"id": "INC-1104", "service": "loan-docs-svc", "severity": "SEV2", "signal": "esign_queue_depth", "value": 640, "baseline": 15, "summary": "Loan agreement e-sign queue backed up; no envelopes sent for 40 minutes"}

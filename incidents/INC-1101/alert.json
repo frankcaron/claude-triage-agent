@@ -1,0 +1,11 @@
+{
+  "id": "INC-1101",
+  "service": "funding-svc",
+  "severity": "SEV2",
+  "fired_at": "2026-11-08T10:05:00Z",
+  "signal": "disbursement_rejection_rate",
+  "value": 0.34,
+  "baseline": 0.01,
+  "pending_disbursements": 38,
+  "summary": "Loan disbursements rejected above 20% for 15 minutes"
+}

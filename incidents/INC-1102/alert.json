@@ -1,0 +1,11 @@
+{
+  "id": "INC-1102",
+  "service": "doc-verification",
+  "severity": "SEV3",
+  "fired_at": "2026-11-08T15:30:00Z",
+  "signal": "doc_check_inconclusive_rate",
+  "value": 0.22,
+  "baseline": 0.03,
+  "applications_waiting": 41,
+  "summary": "Income document fraud checks inconclusive above 15% for 30 minutes"
+}
