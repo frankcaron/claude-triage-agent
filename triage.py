@@ -201,11 +201,76 @@ async def run(prompt: str, opts: ClaudeAgentOptions, show: bool = True):
             print(f"[{message.subtype}, ${message.total_cost_usd or 0:.3f}]")
     return result
 
+
 """==========="""
 """AGENT TORSO"""
 """==========="""
 
+"""This is the main meat-and-potatoes of the agent itself.
+The overall algo is fairly readable to the naked eye, but to provide the basic gist:
 
+Based on the input sample incident, which you could imagine gets invoked by an event stream
+hitting your AWS infra directly from either Cloudwatch or say another monitoring platform like
+Datadog, the agent kicks off.
+
+`triage` invokes the first agent, to attempt to triage the incident, and that agent returns a result.
+
+`plan` invokes the fallback second agent, of stronger muscle, to assess if the first agent isn't confident
+enough in its result.
+"""
+
+async def main(incident: str) -> None:
+    incident_dir = (ROOT / incident).resolve()
+
+    # Run the first agent
+    print("== Triage ==")
+    triage = await run(
+        f"Triage the incident in {incident}. Start with alert.json, "
+        "then find the matching runbook in runbooks/.",
+        options(incident_dir, "triage", model=TRIAGE_MODEL, system_prompt=TRIAGE_PROMPT,
+                skills=[], max_turns=25),
+    )
+    found = re.search(r"^RUNBOOK:\s*(\S+)", (triage.result or "") if triage else "", re.M)
+    runbook = found.group(1) if found else "none"
+
+    # Review the score and confirm the suggested runbook is real
+    print(f"\n== Runbook confidence ({SCORER_MODEL}) ==")
+    data = None
+    if runbook != "none":
+        scored = await run(
+            f"/runbook-confidence {incident} {runbook}",
+            options(incident_dir, "score", model=SCORER_MODEL, skills=["runbook-confidence"],
+                    max_turns=10, output_format={"type": "json_schema", "schema": SCORE_SCHEMA}),
+            show=False,
+        )
+        data = scored.structured_output if scored else None
+    score = combine(data)
+    print(f"Runbook: {runbook}")
+    print(f"Confidence: {score:.2f} (threshold {THRESHOLD:.2f})")
+    if data:
+        for name in WEIGHTS:
+            print(f"  {name}: {data['parts'][name]:.2f}")
+        print(f"Why: {data['rationale']}")
+        for gap in data["gaps"]:
+            print(f"  gap: {gap}")
+    audit({"phase": "score", "runbook": runbook, "score": score, "threshold": THRESHOLD})
+
+    # If the score is above our threshold, let rip and ask SRE for approval
+    if score >= THRESHOLD:
+        print("Above the threshold: the runbook commands above stand, pending human approval.")
+        ask_sre(incident, runbook, score, "runbook", (triage.result or "") if triage else "")
+        return
+
+    # If the score is below our threshold, fall back, plan, then ask the SRE to take over
+    print(f"\n== Extrapolated plan ({FALLBACK_MODEL}) ==")
+    gaps = "; ".join(data["gaps"]) if data else "no usable score"
+    plan = await run(
+        f"Incident folder: {incident}. Closest runbook: {runbook}, confidence {score:.2f}. "
+        f"Gaps found by the scorer: {gaps}. Write the extrapolated plan.",
+        options(incident_dir, "extrapolate", model=FALLBACK_MODEL,
+                system_prompt=EXTRAPOLATE_PROMPT, skills=[], max_turns=25),
+    )
+    ask_sre(incident, runbook, score, "fallback", (plan.result or "") if plan else "")
 
 """===================="""
 """DEVELOPER EXPERIENCE"""
