@@ -115,8 +115,8 @@ def options(incident_dir: Path, phase: str, **extra) -> ClaudeAgentOptions:
         setting_sources=["project"],
         cwd=str(ROOT),
 
-        #Set a fixed budget cap to control cost
-        max_budget_usd=1.00,
+        #Set a fixed budget cap to control cost acros each individual call
+        max_budget_usd=0.33,
 
         #Point to hooks that run before the model does anything to catch oopsies
         hooks={"PreToolUse": [HookMatcher(hooks=[make_guard(incident_dir, phase)])]},
@@ -289,7 +289,11 @@ async def main(incident: str) -> None:
 """===================="""
 
 """Make this all cli fun like in the event I yeet the demo and forget the input incident, 
-because hey, code is free now — but PIBKAC error isn't, and Claude said I'd prolly make a mistake."""
+because hey, code is free now — but PIBKAC error isn't, and Claude said I'd prolly make a mistake.
+At this point, it also allows root access technically, but I'm not going to overdo it here. 
+Claude already told me I was slacking herein... which itself is a good demonstration of its value as
+a peer programmer.
+"""
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print("Hello, agent.")
