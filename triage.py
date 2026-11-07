@@ -37,7 +37,6 @@ from claude_agent_sdk import (
 """VARS"""
 """===="""
 
-
 """Demo point so Frank doesn't forget and helps our CTO feel comfortable: 
 Safety is about more than just saying no to dodgey data use. It's also about runaway cost control.
 The SDK provides the control plane for cost management explictly, including model invocation. 
@@ -61,11 +60,7 @@ AUDIT = ROOT / "audit" / "audit.jsonl"
 """SCAFFOLDING"""
 """==========="""
 
-"""This schema provides structure to the confidence scoring
-allowing some basic configurability. This really doesn't have anything to do
-with Claude Code, so don't mind me as I skim by this. Not much of a pythonista
-but being able to just yeet json as so is nice, ngl.
-"""
+# Used for the scoring system. Just normal Python stuff. No demo point needed.
 WEIGHTS = {"symptoms": 0.35, "trigger": 0.25, "service": 0.20, "coverage": 0.20}
 PART = {"type": "number", "minimum": 0, "maximum": 1}
 SCORE_SCHEMA = {
@@ -90,14 +85,35 @@ SCORE_SCHEMA = {
 it raw-dumped the full prompts herein as long strings. So I moved it around the 
 ol' fashioned way. This is the thing about agentic code; there's no accounting for 
 taste sometimes. SOME HUMANS STILL NEED TO READ IT. ;) 
+
+Jokes aside, this is where some of the more general LLM instrumentation comes
+into contact with what Anthropic is doing specifically with its SDK, wrapping
+the models in supporting developer tools that ensure probabilistic operation
+doesn't become... problematic.
 """
+
+# Used to power the model calls
 TRIAGE_PROMPT = Path("prompts/triage.md").read_text(encoding="utf-8")
 EXTRAPOLATE_PROMPT = Path("prompts/extrapolate.md").read_text(encoding="utf-8")
 
+# Used to instantiate the SDK with all the right things
+# Important call outs here based on the SDK deps callouts
+# Step through all these
+def options(incident_dir: Path, phase: str, **extra) -> ClaudeAgentOptions:
+    return ClaudeAgentOptions(
+        allowed_tools=["Read", "Glob", "Grep"],
+        disallowed_tools=["Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch"],
+        permission_mode="dontAsk",
+        setting_sources=["project"],
+        cwd=str(ROOT),
+        max_budget_usd=1.00,
+        hooks={"PreToolUse": [HookMatcher(hooks=[make_guard(incident_dir, phase)])]},
+        **extra,
+    )
 
-"""=========="""
-"""AGENT BODY"""
-"""=========="""
+"""==========="""
+"""AGENT LIMBS"""
+"""==========="""
 
 # Used for the audit trail write outs as part of the model quality eval inputs
 def audit(event: dict) -> None:
@@ -106,13 +122,22 @@ def audit(event: dict) -> None:
     with AUDIT.open("a") as f:
         f.write(json.dumps(event) + "\n")
 
+# Used to support scoring calcs to determine course of action
+def combine(data: dict | None) -> float:
+    """Weight the scorer's parts in code. No runbook, or no valid score,
+    counts as zero confidence: fail toward review."""
+    if not data:
+        return 0.0
+    return round(sum(w * data["parts"][k] for k, w in WEIGHTS.items()), 2)
+
+"""==========="""
+"""AGENT TORSO"""
+"""==========="""
 
 # Main run
 print("Hello, agent.")
-print(TRIAGE_PROMPT)
 audit({"phase": "prep", "tool": "none", "input": "none",
        "decision": "none"})
-
 
 """===================="""
 """DEVELOPER EXPERIENCE"""
