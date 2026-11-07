@@ -101,12 +101,24 @@ EXTRAPOLATE_PROMPT = Path("prompts/extrapolate.md").read_text(encoding="utf-8")
 # Step through all these
 def options(incident_dir: Path, phase: str, **extra) -> ClaudeAgentOptions:
     return ClaudeAgentOptions(
+
+        #Explictly allow-list only specific shell tools
         allowed_tools=["Read", "Glob", "Grep"],
+
+        #Explictly deny-list specific shell tools and cloud tools
         disallowed_tools=["Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch"],
+
+        #Enforce a certain approach to the model asking for elevated permissions
         permission_mode="dontAsk",
+
+        #Apply the deny rules in .claude/settings.json
         setting_sources=["project"],
         cwd=str(ROOT),
+
+        #Set a fixed budget cap to control cost
         max_budget_usd=1.00,
+
+        #Point to hooks that run before the model does anything to catch oopsies
         hooks={"PreToolUse": [HookMatcher(hooks=[make_guard(incident_dir, phase)])]},
         **extra,
     )
