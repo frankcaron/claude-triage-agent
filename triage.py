@@ -99,8 +99,19 @@ EXTRAPOLATE_PROMPT = Path("prompts/extrapolate.md").read_text(encoding="utf-8")
 """AGENT BODY"""
 """=========="""
 
+# Used for the audit trail write outs as part of the model quality eval inputs
+def audit(event: dict) -> None:
+    AUDIT.parent.mkdir(exist_ok=True)
+    event["ts"] = datetime.now(timezone.utc).isoformat()
+    with AUDIT.open("a") as f:
+        f.write(json.dumps(event) + "\n")
+
+
+# Main run
 print("Hello, agent.")
 print(TRIAGE_PROMPT)
+audit({"phase": "prep", "tool": "none", "input": "none",
+       "decision": "none"})
 
 
 """===================="""
