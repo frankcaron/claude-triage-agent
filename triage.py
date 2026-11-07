@@ -111,6 +111,45 @@ def options(incident_dir: Path, phase: str, **extra) -> ClaudeAgentOptions:
         **extra,
     )
 
+# Used to valide the specific tools and lock down what the agent is capable of
+# This is critical, deterministic, and definitive.
+def make_guard(incident_dir: Path, phase: str):
+    readable = (incident_dir, RUNBOOKS)
+
+    async def guard(input_data, tool_use_id, context):
+        tool = input_data.get("tool_name")
+        args = input_data.get("tool_input", {})
+        reason = None
+        if tool in ("Read", "Glob", "Grep"):
+            if tool == "Glob":
+                # Judge a Glob by its base folder plus the pattern's fixed prefix,
+                # so "incidents/INC-1101/**" passes even when path is the repo root.
+                pattern = args.get("pattern", "")
+                target = ROOT / (args.get("path") or ".") / pattern.split("*")[0]
+                if ".." in pattern:
+                    target = ROOT  # never let a pattern climb out of a folder
+            else:
+                target = ROOT / (args.get("file_path") or args.get("path") or ".")
+            resolved = target.resolve()
+            if not any(resolved.is_relative_to(d) for d in readable):
+                reason = "Only the incident folder and runbooks/ may be read."
+        elif tool not in ("Skill", "StructuredOutput"):
+            reason = "This agent reads and suggests; a human runs commands."
+        audit({"phase": phase, "tool": tool, "input": args,
+               "decision": "deny" if reason else "allow"})
+        if reason is None:
+            return {}
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }
+
+    return guard
+
+
 """==========="""
 """AGENT LIMBS"""
 """==========="""
@@ -122,6 +161,21 @@ def audit(event: dict) -> None:
     with AUDIT.open("a") as f:
         f.write(json.dumps(event) + "\n")
 
+# Used for the audit trail to memorialize whether the SRE on call accepted the agent's guidance or not
+# This audit trail output helps us get to our "SRE Acceptance Rate" from the deckware and would be
+# What we can anchor evals on to improve in the future, manually or with Claude Code itself
+def ask_sre(incident: str, runbook: str, score: float, path: str, remediation: str) -> None:
+    """Record the on-call SRE's verdict for evals. A yes runs nothing."""
+    answer = ""
+    while answer not in ("y", "n"):
+        answer = input("\nDo you accept this remediation? Nothing runs either way. [y/n] ").strip().lower()[:1]
+    accepted = answer == "y"
+    reason = "" if accepted else input("Why not? (optional, Enter to skip) ").strip()
+    audit({"phase": "verdict", "incident": Path(incident).name, "runbook": runbook,
+           "score": score, "path": path, "remediation": remediation,
+           "accepted": accepted, "reason": reason or None})
+    print("Verdict recorded in audit/audit.jsonl.")
+
 # Used to support scoring calcs to determine course of action
 def combine(data: dict | None) -> float:
     """Weight the scorer's parts in code. No runbook, or no valid score,
@@ -130,14 +184,28 @@ def combine(data: dict | None) -> float:
         return 0.0
     return round(sum(w * data["parts"][k] for k, w in WEIGHTS.items()), 2)
 
+# The core SDK invoke for calling the Claude messaging API
+# This generic method is used in different contexts with the supplied prompts
+# To get different jobs done based on the agent-specific algo that follows.
+async def run(prompt: str, opts: ClaudeAgentOptions, show: bool = True):
+    result = None
+    async for message in query(prompt=prompt, options=opts):
+        if show and isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, ToolUseBlock) and block.name != "StructuredOutput":
+                    print(f"  -> {block.name} {json.dumps(block.input)}")
+                elif isinstance(block, TextBlock):
+                    print(block.text)
+        elif isinstance(message, ResultMessage):
+            result = message
+            print(f"[{message.subtype}, ${message.total_cost_usd or 0:.3f}]")
+    return result
+
 """==========="""
 """AGENT TORSO"""
 """==========="""
 
-# Main run
-print("Hello, agent.")
-audit({"phase": "prep", "tool": "none", "input": "none",
-       "decision": "none"})
+
 
 """===================="""
 """DEVELOPER EXPERIENCE"""
@@ -146,6 +214,10 @@ audit({"phase": "prep", "tool": "none", "input": "none",
 """Make this all cli fun like in the event I yeet the demo and forget the input incident, 
 because hey, code is free now — but PIBKAC error isn't, and Claude said I'd prolly make a mistake."""
 if __name__ == "__main__":
+    if len(sys.argv) == 1:
+        print("Hello, agent.")
+        audit({"phase": "pre-run test", "tool": "none", "input": "none", "decision": "none"})
     if len(sys.argv) != 2:
         sys.exit("usage: python triage.py incidents/<ID>")
+        audit({"phase": "pre-run goose", "tool": "none", "input": "none", "decision": "none"})
     asyncio.run(main(sys.argv[1]))
