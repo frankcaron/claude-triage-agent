@@ -1,0 +1,4 @@
+2026-11-08T15:02:11Z INFO  doc_check app=APP-SYN-2041 doc_type=paystub vendor=docverify request_id=dv-SYN-88
+2026-11-08T15:02:14Z WARN  doc_check app=APP-SYN-2041 result=inconclusive fraud_score=0.48 authenticity_score=0.51 reasons=font_metadata_mismatch,low_resolution vendor_model=v7.2
+2026-11-08T15:02:14Z INFO  application app=APP-SYN-2041 state=PENDING_DOC_REVIEW auto_decision=none
+2026-11-08T15:29:40Z WARN  doc_check inconclusive_rate_30m=0.22 baseline=0.03 vendor_model=v7.2 waiting=41

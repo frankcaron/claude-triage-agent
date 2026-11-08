@@ -1,0 +1,3 @@
+2026-11-08T13:02:44Z ERROR render template=loan_agreement_v12 app=APP-SYN-4410 error="missing field: apr_disclosure"
+2026-11-08T13:02:44Z WARN  esign_send skipped app=APP-SYN-4410 reason=render_failed retries=3 dlq=true
+2026-11-08T13:40:10Z ERROR esign_queue_depth=640 dlq_depth=212 workers=4

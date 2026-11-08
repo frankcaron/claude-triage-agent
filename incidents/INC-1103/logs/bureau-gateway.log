@@ -1,0 +1,3 @@
+2026-11-08T11:15:02Z WARN  credit_pull app=APP-SYN-3307 bureau=bureau-a type=hard timeout_ms=10000 status=timeout
+2026-11-08T11:15:02Z INFO  application app=APP-SYN-3307 state=PENDING_CREDIT
+2026-11-08T11:20:40Z ERROR credit_pull_timeout_rate_5m=0.27 bureau=bureau-a p99_ms=10000
