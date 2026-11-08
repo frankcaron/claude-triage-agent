@@ -1,10 +1,19 @@
 {
   "permissions": {
+    "allow": [
+      "Edit(/tests/**)"
+    ],
     "deny": [
       "Bash",
       "Read(./.env)",
       "Read(./.env.*)",
-      "Read(./secrets/**)"
+      "Read(./secrets/**)",
+      "Edit(/triage.py)",
+      "Edit(/prompts/**)",
+      "Edit(/runbooks/**)",
+      "Edit(/incidents/**)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/.claude/**)"
     ]
   }
 }
