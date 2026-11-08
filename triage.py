@@ -53,7 +53,7 @@ THRESHOLD = float(os.environ.get("TRIAGE_CONFIDENCE_THRESHOLD", "0.7"))
 """Reference paths for the supporting documentation for my agent o' triage triumphy"""
 ROOT = Path(__file__).resolve().parent
 RUNBOOKS = ROOT / "runbooks"
-AUDIT = ROOT / "audit" / "audit.jsonl"
+AUDIT = ROOT / "audit" / "audit-soc2-control-log.jsonl"
 
 
 """==========="""
@@ -186,7 +186,7 @@ def ask_sre(incident: str, runbook: str, score: float, path: str, remediation: s
     audit({"phase": "verdict", "incident": Path(incident).name, "runbook": runbook,
            "score": score, "path": path, "remediation": remediation,
            "accepted": accepted, "reason": reason or None})
-    print("Verdict recorded in audit/audit.jsonl.")
+    print("Verdict recorded in audit log.")
 
 # Used to support scoring calcs to determine course of action
 def combine(data: dict | None) -> float:
