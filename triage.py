@@ -47,7 +47,7 @@ But the example here shows how you could pin if you need or want to.
 
 TRIAGE_MODEL = os.environ.get("TRIAGE_MODEL")  # None = Claude Code's default
 SCORER_MODEL = os.environ.get("TRIAGE_SCORER_MODEL", "haiku")
-FALLBACK_MODEL = os.environ.get("TRIAGE_FALLBACK_MODEL", "opusplan")
+FALLBACK_MODEL = os.environ.get("TRIAGE_FALLBACK_MODEL", "opus") # Not using opusplan as perms are dontAsk
 THRESHOLD = float(os.environ.get("TRIAGE_CONFIDENCE_THRESHOLD", "0.7"))
 
 """Reference paths for the supporting documentation for my agent o' triage triumphy"""

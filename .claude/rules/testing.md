@@ -11,5 +11,5 @@ paths:
 - One behaviour per test. The test name says the behaviour, e.g. `test_score_at_threshold_takes_runbook_path`.
 - Test boundaries on both sides: the exact cutoff and the value just below it.
 - Data is synthetic only: `APP-SYN-*`, `LN-SYN-*`, `BA-SYN-*`.
-- Never change `triage.py`, `prompts/`, `runbooks/` or `incidents/` to make a test pass. If the code looks wrong, STOP and say so.
+- Never change core .py files in the main folder, `prompts/`, `runbooks/` or `incidents/` to make a test pass. If the code looks wrong, STOP and say so.
 - You can't run tests here. End by giving the human the exact command: `! python -m pytest tests -v`.

@@ -1,19 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Edit(/tests/**)"
+      "Edit(/*.py)",
+      "Edit(/tests/**)",
+      "Bash(python -m pytest *)",
+      "Bash(ruff check *)",
+      "Bash(ruff format *)"
     ],
     "deny": [
-      "Bash",
+      "Bash(git push *)",
+      "Bash(rm *)",
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./secrets/**)",
-      "Edit(/triage.py)",
       "Edit(/prompts/**)",
       "Edit(/runbooks/**)",
       "Edit(/incidents/**)",
       "Edit(/CLAUDE.md)",
-      "Edit(/.claude/**)"
+      "Edit(/.claude/**)",
+      "Edit(/triage.py)"
     ]
   }
 }
