@@ -14,11 +14,11 @@ Built with Claude Code and the Claude Agent SDK.
 
 1. **Triage**, on Claude Code's default model: reads the incident and `runbooks/`, writes the note, and names the runbook it used on a last `RUNBOOK:` line.
 2. **Score**, on `haiku`: the `runbook-confidence` skill scores four parts of the fit (symptoms, trigger, service, coverage) from 0 to 1. Python, not a model, weights them, and compares the total with the threshold. The model judges, code decides.
-3. **Extrapolate**, on `opus`, only below the threshold: writes a plan where every command is labeled "Adapted from (relevant rubook)" or "New, not in any runbook".
+3. **Extrapolate**, on `opus`, only below the threshold: writes a plan where every command is labeled "Adapted from <runbook file>, <section>" or "New, not in any runbook".
 
 A missing runbook or a probabilistic oopsy in confidence registers as a 0, so a failure always sends the incident toward more review, never less.
 
-Each run ends by asking the on-call SRE whether they accept the remediation. The answer goes to the audit log for evals and runs nothing.
+Each run ends by asking the on-call SRE whether they accept the remediation. The answer goes to the audit log (`audit/audit-soc2-control-log.jsonl`) for evals and runs nothing.
 
 ## Setup
 
@@ -29,8 +29,11 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY="<your key>"          # the SDK does not read .env
-cp .env.example .env                           # fake decoy for the guardrail beat
 ```
+
+For the guardrail beat, you can create a `.env` with fake values as a decoy; the deny rules stop the agent from reading it. The repo doesn't ship one.
+
+Run `triage.py` from the repo root: it loads `prompts/` relative to the current directory.
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -75,7 +78,7 @@ This is meant as a demo, so there would be work necessary to move this directly 
 
 * Every applicant, loan and bank account in this repo is synthetic (`APP-SYN-*`, `LN-SYN-*`, `BA-SYN-*`).
 * Every host, token and API path in the runbooks is a placeholder.
-* The agent workflow has a $1.00 budget cap (`max_budget_usd`).
+* Each agent call has a $0.33 budget cap (`max_budget_usd`), so a full three-agent run tops out around $1.00.
 * `CLAUDE.md` adds house rules for any Claude session in the repo.
 * The repo adds deliberately-intended fakery to demonstrate Claude's unique baked-in guardrails, outlined below.
 
@@ -85,4 +88,4 @@ Ultimately, this is the money stuff. The SDK exposes key guardrails, as does the
 
 1. **SDK options.** `allowed_tools` approves Read, Glob and Grep. `disallowed_tools` removes Bash, Write, Edit and the web tools from the model's context. `permission_mode="dontAsk"` denies anything that would prompt, so a run never hangs on stage.
 2. **Deny rules** in `.claude/settings.json`: Bash, `.env`, `.env.*` and `secrets/` are denied, and a deny wins in every permission mode. This is the same file format an enterprise pushes through managed settings.
-3. **A PreToolUse hook** in `triage.py`: logs every attempted call to `audit/audit.jsonl`, denies any read outside the incident folder and `runbooks/`, and denies every tool except Read, Glob, Grep, the skill and structured output.
+3. **A PreToolUse hook** in `triage.py`: logs every attempted call to `audit/audit-soc2-control-log.jsonl`, denies any read outside the incident folder and `runbooks/`, and denies every tool except Read, Glob, Grep, the skill and structured output.
