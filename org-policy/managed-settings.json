@@ -4,6 +4,12 @@
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./secrets/**)",
+      "Bash(* .env)",
+      "Bash(* .env *)",
+      "Bash(* .env.*)",
+      "Bash(*/.env*)",
+      "Bash(* <.env*)",
+      "Bash(*secrets/*)",
       "Bash(git push --force *)",
       "Bash(curl *)",
       "Bash(wget *)"
@@ -13,7 +19,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",

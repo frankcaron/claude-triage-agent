@@ -13,3 +13,4 @@
 ## Code
 - Python rules live in [.claude/rules/python.md](.claude/rules/python.md); they load when you open a .py file.
 - To add or change code, use the write-code skill. Every change ships with a test.
+- To avoid oopsies with the demo staging, do not edit triage.py; it is blocked explictly.
