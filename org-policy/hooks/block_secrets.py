@@ -8,6 +8,7 @@ import json
 import re
 import sys
 
+# A sample set of regex patterns for common oopsie-daisy data points
 PATTERNS = {
     "Anthropic API key": r"sk-ant-[A-Za-z0-9_-]{16,}",
     "AWS access key": r"AKIA[0-9A-Z]{16}",
@@ -18,6 +19,7 @@ PATTERNS = {
 }
 
 
+# Grab text for tool calls to deterministically double check for da danger
 def new_text(tool_input: dict) -> str:
     """Collect the text an edit would write or a shell command would run."""
     keys = ("content", "new_string", "new_source", "command")
@@ -27,6 +29,7 @@ def new_text(tool_input: dict) -> str:
     return "\n".join(str(p) for p in parts)
 
 
+# Prep the messaging so humie knows what went sideways
 def target_of(tool_input: dict) -> str:
     """Name what the tool call would write to, for the block message."""
     return (
@@ -35,7 +38,7 @@ def target_of(tool_input: dict) -> str:
         or ("a shell command" if "command" in tool_input else "this file")
     )
 
-
+# Apply the secrets block logic when triggered
 def main() -> int:
     """Exit 2 (block, reason on stderr) if the call holds a secret or can't be read, else 0."""
     try:

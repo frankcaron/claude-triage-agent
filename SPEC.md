@@ -1,8 +1,5 @@
 # Spec: agentic incident triage agent
 
-Status: demo. Describes what is implemented as of commit `442212f` (2026-11-09).
-Source of intent: [INTENT.md](INTENT.md). Where the code and the README disagree, this spec follows the code; remaining gaps are under [Known gaps](#9-known-gaps-and-discrepancies).
-
 ## 1. Intent → implementation map
 
 | INTENT.md says | What the repo implements |
